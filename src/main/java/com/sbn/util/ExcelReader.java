@@ -26,4 +26,8 @@ public class ExcelReader implements Closeable {
     public void close() throws IOException {
         workbook.close();
     }
+
+    public int getColumnCount(String sheetName, int rowIndex) {
+        return workbook.getSheet(sheetName).getRow(rowIndex).getLastCellNum();
+    }
 }
