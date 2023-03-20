@@ -3,34 +3,89 @@ package com.sbn;
 import com.sbn.entity.MyStep;
 import com.sbn.entity.MyTest;
 import com.sbn.util.ExcelReader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.firefox.FirefoxDriver;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Runner {
+    private final static Logger LOGGER = LogManager.getLogger();
+    private static WebDriver driver = null;
     public static void main(String[] args) {
         String testSuitePath = "./testSuite.xlsx";
         String suiteName = "Sanity";
+        LOGGER.info("Starting test Execution for suite: " + suiteName);
         List<MyTest> testsFromExcel = getTestsFromExcel(testSuitePath, suiteName);
+        LOGGER.info("Found total:" + testsFromExcel.size() + " tests from Suite:" + suiteName);
         executeSuite(testsFromExcel);
 
     }
 
     private static void executeSuite(List<MyTest> testsFromExcel) {
+        boolean result = true;
+        for (MyTest myTest : testsFromExcel) {
+            if(myTest.isEnabled()){
+                result &= executeTest(myTest);
+            }else{
+                LOGGER.info("Skipping test:[" + myTest.getTestId() + "] as it is marked as disabled");
+            }
+        }
+        LOGGER.info("Final result " + result);
+    }
 
+    private static boolean executeTest(MyTest myTest) {
+        List<MyStep> mySteps = myTest.getMySteps();
+        boolean testResult = true;
+        driver = new FirefoxDriver();
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
+        for (MyStep myStep : mySteps) {
+            LOGGER.info("executing Step:" + myStep.getStepName());
+            testResult &= executeStep(myStep);
+        }
+        driver.quit();
+        return testResult;
+    }
+
+    private static boolean executeStep(MyStep myStep) {
+        LOGGER.info("Executing test:" + myStep.getStepName() + " with input " + Arrays.asList(myStep.getInputs()));
+        switch (myStep.getStepName().toLowerCase()){
+            case "launchapplication" ->{
+                return StepDefs.launchApplication(myStep,driver);
+            }
+            case "login" ->{
+                return StepDefs.login(myStep,driver);
+            }
+        }
+        return false;
     }
 
     private static List<MyTest> getTestsFromExcel(String testSuitePath, String suiteName) {
+        LOGGER.info("Parsing tests from Excel:"+testSuitePath);
         List<MyTest> myTests = new ArrayList<>();
+
         try(ExcelReader excelReader = new ExcelReader(testSuitePath)) {
             int numberOfRows = excelReader.getRowCount(suiteName);
+            LOGGER.info("Found total " + numberOfRows + " in Excel Sheet:" + suiteName);
+            MyTest test = null;
             for(int i=1;i<=numberOfRows;i++){
-                MyTest test = createTest(suiteName, excelReader, i);
+                if(!excelReader.getCellStringValue(suiteName, i,0).isEmpty() || !excelReader.getCellStringValue(suiteName, i,0).isBlank()) {
+                    if(test!=null) {
+                        myTests.add(test);
+                    }
+                    test = createTest(suiteName, excelReader, i);
+                }
                 MyStep step = createStep(suiteName,excelReader,i);
-                test.addStep(step);
-
+                if(test!=null) {
+                    test.addStep(step);
+                }
             }
+            myTests.add(test);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -41,15 +96,17 @@ public class Runner {
         String stepName = excelReader.getCellStringValue(suiteName,i,3);
         boolean expected = excelReader.getCellStringValue(suiteName,i,4).equalsIgnoreCase("true");
         int columnCount = excelReader.getColumnCount(suiteName, i);
+        LOGGER.info("found total " + columnCount + " at row:" + i);
         String[] params = new String[columnCount-5];
-        for(int j= 5;j<=columnCount;j++){
+        for(int j= 5;j<columnCount;j++){
+            LOGGER.info("Parsing parameter from column:" + j);
             params[j-5] = excelReader.getCellStringValue(suiteName,i,j);
         }
         return new MyStep(stepName,expected,params);
     }
 
     private static MyTest createTest(String suiteName, ExcelReader excelReader, int i) {
-        int testId = Integer.parseInt(excelReader.getCellStringValue(suiteName, i,0));
+        int testId = (int)Float.parseFloat(excelReader.getCellStringValue(suiteName, i,0));
         String description = excelReader.getCellStringValue(suiteName, i,1);
         boolean isEnabled = excelReader.getCellStringValue(suiteName, i,2).equalsIgnoreCase("Y");
         return new MyTest(testId,description,isEnabled);

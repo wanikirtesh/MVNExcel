@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Configuration xmlns="http://logging.apache.org/log4j/2.0/config">
+    <Appenders>
+        <Console name="consoleAppender" target="SYSTEM_OUT">
+            <PatternLayout pattern="%msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger level="TRACE" name="com.sbn" additivity="false">
+            <AppenderRef ref="consoleAppender"/>
+        </Logger>
+        <Root level="FATAL">
+            <AppenderRef ref="consoleAppender" />
+        </Root>
+    </Loggers>
+</Configuration>

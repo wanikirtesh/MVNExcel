@@ -1,6 +1,6 @@
 package com.sbn.util;
 
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -19,7 +19,21 @@ public class ExcelReader implements Closeable {
     }
 
     public String getCellStringValue(String sheetName,int rowIndex, int colIndex){
-        return workbook.getSheet(sheetName).getRow(rowIndex).getCell(colIndex).getStringCellValue();
+        Cell myCell = workbook.getSheet(sheetName).getRow(rowIndex).getCell(colIndex);
+        if(myCell==null)
+            return "";
+        switch(myCell.getCellType()){
+            case NUMERIC -> {
+                return "" + myCell.getNumericCellValue();
+            }
+            case BOOLEAN -> {
+                return "" + myCell.getBooleanCellValue();
+            }
+            default -> {
+                return myCell.getStringCellValue();
+            }
+        }
+
     }
 
     @Override
