@@ -1,11 +1,11 @@
-package com.sbn;
+package com.sbn.pages;
 
 import com.sbn.entity.MyStep;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 
 public class StepDefs {
-    public static boolean launchApplication(MyStep step, WebDriver driver){
+    public static boolean launchapplication(MyStep step, WebDriver driver){
         driver.get(step.getInputs()[0]);
         return true;
     }

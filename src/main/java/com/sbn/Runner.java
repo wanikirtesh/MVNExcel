@@ -9,6 +9,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,7 +32,9 @@ public class Runner {
         boolean result = true;
         for (MyTest myTest : testsFromExcel) {
             if(myTest.isEnabled()){
+
                 result &= executeTest(myTest);
+
             }else{
                 LOGGER.info("Skipping test:[" + myTest.getTestId() + "] as it is marked as disabled");
             }
@@ -46,23 +49,24 @@ public class Runner {
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
         for (MyStep myStep : mySteps) {
             LOGGER.info("executing Step:" + myStep.getStepName());
-            testResult &= executeStep(myStep);
+            try {
+                testResult &= executeStep(myStep);
+            }catch (Exception e){
+                testResult =false;
+                e.printStackTrace();
+                break;
+            }
         }
         driver.quit();
         return testResult;
     }
 
-    private static boolean executeStep(MyStep myStep) {
+    private static boolean executeStep(MyStep myStep) throws Exception {
         LOGGER.info("Executing test:" + myStep.getStepName() + " with input " + Arrays.asList(myStep.getInputs()));
-        switch (myStep.getStepName().toLowerCase()){
-            case "launchapplication" ->{
-                return StepDefs.launchApplication(myStep,driver);
-            }
-            case "login" ->{
-                return StepDefs.login(myStep,driver);
-            }
-        }
-        return false;
+        Class<?> aClass = Class.forName(myStep.getClassName());
+        Method method = aClass.getMethod(myStep.getStepName().toLowerCase(),MyStep.class,WebDriver.class);
+        return (boolean)method.invoke(null,myStep,driver);
+
     }
 
     private static List<MyTest> getTestsFromExcel(String testSuitePath, String suiteName) {
@@ -102,7 +106,7 @@ public class Runner {
             LOGGER.info("Parsing parameter from column:" + j);
             params[j-5] = excelReader.getCellStringValue(suiteName,i,j);
         }
-        return new MyStep(stepName,expected,params);
+        return new MyStep(stepName,expected,params,getClassName(excelReader,stepName));
     }
 
     private static MyTest createTest(String suiteName, ExcelReader excelReader, int i) {
@@ -110,6 +114,17 @@ public class Runner {
         String description = excelReader.getCellStringValue(suiteName, i,1);
         boolean isEnabled = excelReader.getCellStringValue(suiteName, i,2).equalsIgnoreCase("Y");
         return new MyTest(testId,description,isEnabled);
+    }
+
+    private static String getClassName(ExcelReader excelReader, String stepName){
+        String sheetName = "keyWords";
+        int rows = excelReader.getRowCount(sheetName);
+        for(int i =1;i<=rows;i++){
+            if(excelReader.getCellStringValue(sheetName,i,0).equalsIgnoreCase(stepName)){
+                return excelReader.getCellStringValue(sheetName,i,1);
+            }
+        }
+        return "";
     }
 
 }

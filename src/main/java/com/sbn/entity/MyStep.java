@@ -5,10 +5,13 @@ public class MyStep {
     private final boolean expected;
     private final String[] inputs;
 
-    public MyStep(String stepName, boolean expected, String[] inputs) {
+    private final String className;
+
+    public MyStep(String stepName, boolean expected, String[] inputs,String className) {
         this.stepName = stepName;
         this.expected = expected;
         this.inputs = inputs;
+        this.className = className;
     }
 
     public String getStepName() {
@@ -21,5 +24,9 @@ public class MyStep {
 
     public String[] getInputs() {
         return inputs;
+    }
+
+    public String getClassName() {
+        return className;
     }
 }
