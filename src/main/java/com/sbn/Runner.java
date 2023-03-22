@@ -3,6 +3,7 @@ package com.sbn;
 import com.sbn.entity.MyStep;
 import com.sbn.entity.MyTest;
 import com.sbn.util.ExcelReader;
+import com.sbn.util.MyReporter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.WebDriver;
@@ -22,21 +23,26 @@ public class Runner {
         String testSuitePath = "./testSuite.xlsx";
         String suiteName = "Sanity";
         LOGGER.info("Starting test Execution for suite: " + suiteName);
+        MyReporter.start();
         List<MyTest> testsFromExcel = getTestsFromExcel(testSuitePath, suiteName);
         LOGGER.info("Found total:" + testsFromExcel.size() + " tests from Suite:" + suiteName);
         executeSuite(testsFromExcel);
+        MyReporter.stop();
 
     }
 
     private static void executeSuite(List<MyTest> testsFromExcel) {
         boolean result = true;
         for (MyTest myTest : testsFromExcel) {
+            MyReporter.startTest(myTest);
             if(myTest.isEnabled()){
 
-                result &= executeTest(myTest);
-
+                boolean testResult = executeTest(myTest);
+                result &= testResult;
+                MyReporter.completeTest(testResult);
             }else{
                 LOGGER.info("Skipping test:[" + myTest.getTestId() + "] as it is marked as disabled");
+                MyReporter.skipTest();
             }
         }
         LOGGER.info("Final result " + result);
@@ -50,9 +56,13 @@ public class Runner {
         for (MyStep myStep : mySteps) {
             LOGGER.info("executing Step:" + myStep.getStepName());
             try {
-                testResult &= executeStep(myStep);
+                MyReporter.startStep(myStep);
+                boolean stepResult = executeStep(myStep);
+                testResult &= stepResult;
+                MyReporter.completeStep(stepResult);
             }catch (Exception e){
                 testResult =false;
+                MyReporter.completeStep(e);
                 e.printStackTrace();
                 break;
             }
@@ -66,13 +76,11 @@ public class Runner {
         Class<?> aClass = Class.forName(myStep.getClassName());
         Method method = aClass.getMethod(myStep.getStepName().toLowerCase(),MyStep.class,WebDriver.class);
         return (boolean)method.invoke(null,myStep,driver);
-
     }
 
     private static List<MyTest> getTestsFromExcel(String testSuitePath, String suiteName) {
         LOGGER.info("Parsing tests from Excel:"+testSuitePath);
         List<MyTest> myTests = new ArrayList<>();
-
         try(ExcelReader excelReader = new ExcelReader(testSuitePath)) {
             int numberOfRows = excelReader.getRowCount(suiteName);
             LOGGER.info("Found total " + numberOfRows + " in Excel Sheet:" + suiteName);
